@@ -1,30 +1,119 @@
 import socket
 import threading
-import tkinter
-import tkinter.scrolledtext
-from tkinter import simpledialog
+import tkinter as tk
+from tkinter import scrolledtext
+from tkinter import messagebox
 
-Host = '127.0.0.1'
-Port = 8080
+HOST = '127.0.0.1'
+PORT = 8080
 
-class Client:
+DARK_GREY = '#121212'
+MEDIUM_GREY = '#1F1B24'
+OCEAN_BLUE = '#46AEBB'
+WHITE = "white"
+FONT = ("Helvetica", 17)
+BUTTON_FONT = ("Helvetica", 15)
+SMALL_FONT = ("Helvetica", 13)
 
-    def __init__(self, host, port):
+  #creating a socket object
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
+def add_message(message):
+    message_box.config(state=tk.NORMAL)
+    message_box.insert(tk.END, message + '\n')
+    message_box.config(state=tk.DISABLED)
+    
 
-        msg= tkinter.Tk()
-        msg.withdraw()
 
-        self.nama = simpledialog.askstring("Nama", "Pilih nama",parent=msg)
+def connect():
+    #try except block
+    try:
 
-        self.gui_done = False
-        self.running = True
-
+         #connect to the server
+        client.connect((HOST, PORT))
+        print(f"Sucessfully connected to server")
+        add_message("[SERVER] Successfully connected to the server")
+    except:
+        messagebox.showerror("Unable to connect to server", f"Unable to connect to server {HOST} {PORT}")
         
-        gui_thread = threading.Thread(target=self.gui_loop)
-        receive_thread = threading.Thread(target=self.receive)
+    username = username_textbox.get()
+    if username != '':
+        client.sendall(username.encode('utf-8'))
+        # add_message('kirim username ah')
+    else:
+        messagebox.showerror("Invalid username", "Username cannot be empty")
+        
 
-        gui_thread.start()
-        receive_thread.start()
+    threading.Thread(target=listen_for_messages_from_server, args=(client, )).start()    
+
+    username_textbox.config(state=tk.DISABLED)
+    username_button.config(state=tk.DISABLED)
+
+def send_message():
+    message = message_textbox.get()
+    if message!= '':
+        client.sendall(message.encode())
+        message_textbox.delete(0, len(message) -1)
+    else:
+        messagebox.showerror("Empty message", "Message cannot be empty")
+            
+
+root = tk.Tk()
+root.geometry("600x600")
+root.title("Messanger client")
+root.resizable(False, False)
+
+
+root.grid_rowconfigure(0, weight=1)
+root.grid_rowconfigure(1, weight=4)
+root.grid_rowconfigure(2, weight=1)
+
+
+top_frame = tk.Frame(root, width=600, height=100, bg=WHITE)
+top_frame.grid(row=0, column=0, sticky=tk.NSEW)
+
+middle_frame = tk.Frame(root, width=600, height=400, bg=DARK_GREY )
+middle_frame.grid(row=1, column=0, sticky=tk.NSEW)
+
+bottom_frame = tk.Frame(root, width=600, height=100, bg=DARK_GREY)
+bottom_frame.grid(row=2, column=0, sticky=tk.NSEW)
+
+username_label = tk.Label(top_frame, text ="Enter Username:", font=FONT, bg=DARK_GREY, fg=WHITE)
+username_label.pack(side=tk.LEFT, padx=10)
+
+username_textbox = tk.Entry(top_frame, font=FONT, bg=MEDIUM_GREY, fg=WHITE, width=23)
+username_textbox.pack(side=tk.LEFT)
+
+username_button = tk.Button(top_frame, text="Join", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE, command=connect)
+username_button.pack(side=tk.LEFT, padx=15)
+
+message_textbox = tk.Entry(bottom_frame, font=FONT, bg=MEDIUM_GREY, fg=WHITE, width=38)
+message_textbox.pack(side=tk.LEFT, padx=10)
+
+message_button = tk.Button(bottom_frame, text="Send", font=BUTTON_FONT, bg=OCEAN_BLUE, fg=WHITE, command=send_message)
+message_button.pack(side=tk.LEFT, padx=10)
+
+message_box = scrolledtext.ScrolledText(middle_frame, font=SMALL_FONT, bg=MEDIUM_GREY, fg=WHITE, width=67, height=23)
+message_box.config(state=tk.DISABLED)
+message_box.pack(side=tk.TOP)
+
+
+
+def listen_for_messages_from_server(client):
+
+        while 1:
+
+            message = client.recv(2048).decode('utf-8')
+            if message != '':
+                username = message.split("~")[0]
+                content = message.split('~')[1]
+
+                add_message(f"[{username}] {content}")
+            else:
+                messagebox.showerror("Error", "Message recevied from client is empty")
+
+#main function
+
+
+root.mainloop()
+    

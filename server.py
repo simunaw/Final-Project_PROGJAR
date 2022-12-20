@@ -1,54 +1,94 @@
+#import required modules
+import signal
 import socket
 import threading
 
-Host = '127.0.0.1'
-Port = 8080
+HOST = '127.0.0.1'
+PORT = 8080
+LISTENER_lIMIT = 5
+active_clients = []  #list of all currently connect user
 
-server = socket.socket(socket.AF_INF, socket.SOCK_STREAM)
-server.bind(Host, Port)
 
-server.listen()
+#function to listen for upcoming message from client
+def listen_for_messages(client, username):
 
-clients = []
-nama = []
+    while 1:
 
-#Broadcast pesan */
+        message = client.recv(2048).decode('utf-8')
+        if message != '':
+        
 
-def broadcast(pesan):
-    for client in clients:
-        client.send(pesan)
+                final_msg = username + '~' + message 
+                send_messages_to_all(final_msg)
 
-def handle(client):
-    while True:
-        try:
-            pesan = client.recv(1024)
-            print(f"{nama[clients.index(client)]} says {pesan}")
-            broadcast(pesan)
-        except:
-            index = clients.index(client)
-            clients.remove(client)
-            client.close()
-            nama = nama[index]
-            nama.remove(nama)
+        else:
+            print(f"The message send from client {username} is empty")
+
+#function to send any new message single clients
+
+def send_message_to_client(client, message):
+
+
+    client.send(message.encode('utf-8'))
+
+#function to send any new message to all the client that
+#are curently connected to this server
+def send_messages_to_all(message):
+
+    for user in active_clients:
+
+       user.send(message.encode('utf-8'))
+    #    print("kirim pesan ke:",user)
+
+#functioon to handle client
+def client_handler(client):
+    
+    #sever will listen for client message
+    while 1:
+        
+        username = client.recv(2048).decode('utf-8')
+        # print("dapet username nih: ",username)
+        if username != '':
+            
+            prompt_message = "SERVER~" + f"{username} added to the chat"
+            send_messages_to_all(prompt_message)
             break
 
-def receive():
-    while True:
-        client, address = server.accept()
-        print(f"Connectdet with{str(address)}!")
+        else:
+            print("client username is empty")
 
-        client.send("NAMA".encode('utf-8'))
-        nama = client.recv(1024)
+    threading.Thread(target=listen_for_messages, args=(client, username, )).start()
 
-        nama.append(nama)
-        clients.append(client)
+#main function
+def main():
+    #create the socket class object
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        print(f"Nama Client {nama}")
-        broadcast(f"{nama} connected to the server!\n".encode('utf-8'))
-        client.send("Connected to the server".encode('utf-8'))
 
-        thread = threading.Thread(target=handle, args=(client,))
-        thread.start()
+    #create a try catch block
+    try:
+        server.bind((HOST, PORT))
+        print(f"Running the server on {HOST} {PORT}")
+    except:
+        print(f"Unable to bind to host {HOST} and port {PORT}")
 
-print("Server running...")
-receive()
+    #set server limit
+    server.listen(LISTENER_lIMIT)
+
+    #This while loop wil keep listening to client connections
+    while 1:
+
+        client, address= server.accept()
+        print(f"Successfully connected to client {address[0]} {address[1]}")
+        active_clients.append(client)
+
+        threading.Thread(target=client_handler, args=(client, )).start()
+
+        
+        
+if __name__== '__main__':
+    main()
+
+
+
+
